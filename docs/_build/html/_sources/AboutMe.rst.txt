@@ -1,0 +1,9 @@
+About Me
+==================
+
+I am a second year graduate student in astronomy at the University of Texas at Austin.
+This code is liscensed under the MIT liscense.
+
+My github can be found at github.com/kendallsullivan, and my website is https://kendallsullivan14.wixsite.com/home.
+
+My email is kendallsullivan@utexas.edu, for code- or research-related questions.
