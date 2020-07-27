@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>API &mdash; specfit 0.3 documentation</title>
+  <title>Documentation &mdash; specfit 0.3 documentation</title>
   
 
   
@@ -82,9 +82,9 @@
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="About.html">About</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#module-IMF">IMF.py</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#model-fit-tools-v2">Model fit tools (v2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-model_fit_tools_v2">Model fit tools (v2)</a></li>
 </ul>
 </li>
 </ul>
@@ -132,7 +132,7 @@
     
       <li><a href="index.html">Docs</a> &raquo;</li>
         
-      <li>API</li>
+      <li>Documentation</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -151,9 +151,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="api">
-<h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
-<p>The API for the various specfit functionalities is documented to the best of my ability below.</p>
+  <div class="section" id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="module-IMF">
 <span id="imf-py"></span><h2>IMF.py<a class="headerlink" href="#module-IMF" title="Permalink to this headline">¶</a></h2>
 <span class="target" id="module-IMF"></span><p>Dependencies: numpy, matplotlib, astropy, scipy, model_fit_tools_v2, MPI4py</p>
@@ -623,8 +622,513 @@ Uses a default log(g) of 4, and assumes that both spectra have the same log(g)</
 </dd></dl>
 
 </div>
-<div class="section" id="model-fit-tools-v2">
-<h2>Model fit tools (v2)<a class="headerlink" href="#model-fit-tools-v2" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-model_fit_tools_v2">
+<span id="model-fit-tools-v2"></span><h2>Model fit tools (v2)<a class="headerlink" href="#module-model_fit_tools_v2" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-model_fit_tools_v2"></span><p>Dependencies: numpy, matplotlib, astropy, scipy, model_fit_tools_v2, MPI4py</p>
+<dl class="function">
+<dt id="model_fit_tools_v2.add_spec">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">add_spec</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">flux_ratio</em>, <em class="sig-param">normalize=True</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.add_spec" title="Permalink to this definition">¶</a></dt>
+<dd><p>add spectra together given an array of spectra and flux ratios
+TO DO: handle multiple flux ratios in different spectral ranges</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>2-d array</em>) – wavelength array (of vectors)</p></li>
+<li><p><strong>spec</strong> (<em>2-d array</em>) – spectrum array (of vectors),</p></li>
+<li><p><strong>flux_ratio</strong> (<em>array</em>) – flux ratio array with len = len(spectrum_array) - 1, where the final entry is the wavelength to normalize at, sand whether or not to normalize (default is True)</p></li>
+<li><p><strong>normalize</strong> (<em>boolean</em>) – Normalize the spectra before adding them (default is True)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>spectra added together with the given flux ratio</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>spec1 (list)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.bccorr">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">bccorr</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">bcvel</em>, <em class="sig-param">radvel</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.bccorr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates a barycentric velocity correction given a barycentric and/or a radial velocity (set the unused value to zero)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength vector.</p></li>
+<li><p><strong>bcvel</strong> (<em>float</em>) – a barycentric or heliocentric velocity.</p></li>
+<li><p><strong>radvel</strong> (<em>float</em>) – a systemic radial velocity.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Velocities are in km/s.
+If system RV isn’t known, that value can be zero.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a wavelength vector corrected for barycentric and radial velocities.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>lam_corr (list)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.broaden">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">broaden</code><span class="sig-paren">(</span><em class="sig-param">even_wl</em>, <em class="sig-param">modelspec_interp</em>, <em class="sig-param">res</em>, <em class="sig-param">vsini=0</em>, <em class="sig-param">limb=0</em>, <em class="sig-param">plot=False</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.broaden" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds resolution, vsin(i) broadening, taking into account limb darkening.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>even_wl</strong> (<em>list</em>) – evenly spaced model wavelength vector</p></li>
+<li><p><strong>modelspec_interp</strong> (<em>list</em>) – model spectrum vector</p></li>
+<li><p><strong>res</strong> (<em>float</em>) – desired spectral resolution</p></li>
+<li><p><strong>vsini</strong> (<em>float</em>) – star vsin(i)</p></li>
+<li><p><strong>limb</strong> (<em>float</em>) – the limb darkening coeffecient</p></li>
+<li><p><strong>plot</strong> (<em>boolean</em>) – if True, plots the full input spectrum and the broadened output. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a tuple containing an evenly spaced wavelength vector spanning the width of the original wavelength range, and a corresponding flux vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.chisq">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">chisq</code><span class="sig-paren">(</span><em class="sig-param">model</em>, <em class="sig-param">data</em>, <em class="sig-param">var</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.chisq" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates chi square values of a model and data with a given variance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>list</em>) – model array.</p></li>
+<li><p><strong>data</strong> (<em>list</em>) – data array. Must have same len() as model array.</p></li>
+<li><p><strong>variance</strong> (<em>float</em><em> or </em><em>list</em>) – Data variance. Defaults to 10.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Reduced chi square value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>cs (float)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.extinct">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">extinct</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">av</em>, <em class="sig-param">rv=3.1</em>, <em class="sig-param">unit='aa'</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.extinct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses the package “extinction” to calculate an extinction curve for the given A_v and R_v,
+then converts the extinction curve to a transmission curve
+and uses that to correct the spectrum appropriately.
+Accepted units are angstroms (‘aa’, default) or microns^-1 (‘invum’).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>spec</strong> (<em>list</em>) – flux array</p></li>
+<li><p><strong>av</strong> (<em>float</em>) – extinction in magnitudes</p></li>
+<li><p><strong>rv</strong> (<em>float</em>) – Preferred R_V, defaults to 3.1</p></li>
+<li><p><strong>unit</strong> (<em>string</em>) – Unit to use. Accepts angstroms “aa” or inverse microns “invum”. Defaults to angstroms.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a corrected spectrum vwith no wavelength vector.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>spec (list)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.find_model">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">find_model</code><span class="sig-paren">(</span><em class="sig-param">temp</em>, <em class="sig-param">logg</em>, <em class="sig-param">metal</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.find_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds a filename for a phoenix model with values that fall on a grid point.
+Assumes that model files are in a subdirectory of the working directory, with that subdirectory called “SPECTRA”
+and that the file names take the form “lte{temp}-{log g}-{metallicity}.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits”
+The file should contain a flux column, where the flux is in units of log(erg/s/cm^2/cm/surface area). There should also be a
+wavelength file in the spectra directory called WAVE_PHOENIX-ACES-AGSS-COND-2011.fits, with wavelength in Angstroms.
+THE NEW SPECTRA are from Husser et al 2013.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>temperature</strong> (<em>float</em>) – temperature value</p></li>
+<li><p><strong>log</strong> – log(g) value</p></li>
+<li><p><strong>metallicity</strong> (<em>float</em>) – Metallicity value</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Values must fall on the grid points of the model grid. Only supports log(g) = 4 with current spectra directory.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>file name of the phoenix model with the specified parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.find_nearest">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">find_nearest</code><span class="sig-paren">(</span><em class="sig-param">array</em>, <em class="sig-param">value</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.find_nearest" title="Permalink to this definition">¶</a></dt>
+<dd><p>finds index in array such that the array component at the returned index is closest to the desired value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>array</strong> (<em>list</em>) – Array to search.</p></li>
+<li><p><strong>value</strong> (<em>float</em><em> or </em><em>int</em>) – Value to find closest value to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>index at which array is closest to value</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>idx (int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.fit_spec">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">fit_spec</code><span class="sig-paren">(</span><em class="sig-param">n_walkers, wl, flux, reg, guess_init, sig_init={'dust': [100], 'extinct': [0.1], 'fr': [0.4], 'lg': [0.2, 0.2], 't': [200, 200]}, wu='um', burn=100, cs=10, steps=200, pysyn=False, dust=False</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.fit_spec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Does an MCMC to fit a combined model spectrum to an observed single spectrum.
+guess_init and sig_init should be dictionaries of component names and values for the input guess and the
+prior standard deviation, respectively.
+Assumes they have the same metallicity.
+The code will expect an dictionary with values for temperature (‘t’), log g (‘lg’), and dust (‘dust’) right now.
+TO DO: add line broadening, disk/dust to possible fit params.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_walkers</strong> (<em>int</em>) – number of walkers</p></li>
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>flux</strong> (<em>list</em>) – spectrum array</p></li>
+<li><p><strong>reg</strong> (<em>list</em>) – Two value array with start and end points for fitting.</p></li>
+<li><p><strong>fr</strong> (<em>list</em>) – flux ratio array. Value1 is flux ratio, value2 is location in the spectrum of value1, etc.</p></li>
+<li><p><strong>guess_init</strong> (<em>dictionary</em>) – dictionary of component names and values for the input guess. The code will expect an dictionary with values for temperature (‘t’), log g (‘lg’), extinction (‘extinct’), and dust (‘dust’).</p></li>
+<li><p><strong>sig_init</strong> (<em>dictionary</em>) – A dictionary with corresponding standard deviations for each input guess. Default is 200 for temperature, 0.2 for log(g)</p></li>
+<li><p><strong>wu</strong> (<em>string</em>) – wavelength unit. currently supports ‘aa’ or ‘um’. Default: “um”.</p></li>
+<li><p><strong>burn</strong> (<em>int</em>) – how many initial steps to discard to make sure walkers are spread out. Default: 100.</p></li>
+<li><p><strong>cs</strong> (<em>int</em>) – cutoff chi square to decide convergence. Default: 10.</p></li>
+<li><p><strong>steps</strong> (<em>int</em>) – maximum steps to take after the burn-in steps. Default: 200.</p></li>
+<li><p><strong>pysyn</strong> (<em>Bool</em>) – Boolean command of whether or not to use pysynphot for spectral synthesis. Default: False</p></li>
+<li><p><strong>conv</strong> (<em>Bool</em>) – Use chi-square for convergence (True) or the number of steps (False). Default: True.</p></li>
+<li><p><strong>dust</strong> (<em>Bool</em>) – Add a dust spectrum. Default: False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.get_spec">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">get_spec</code><span class="sig-paren">(</span><em class="sig-param">temp</em>, <em class="sig-param">log_g</em>, <em class="sig-param">reg</em>, <em class="sig-param">metallicity=0</em>, <em class="sig-param">normalize=False</em>, <em class="sig-param">wlunit='aa'</em>, <em class="sig-param">pys=False</em>, <em class="sig-param">plot=False</em>, <em class="sig-param">model_dir='phoenix'</em>, <em class="sig-param">resolution=3000</em>, <em class="sig-param">reduce_res=True</em>, <em class="sig-param">npix=3</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.get_spec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a spectrum from given parameters, either using the pysynphot utility from STScI or using a homemade interpolation scheme.
+Pysynphot may be slightly more reliable, but the homemade interpolation is more efficient (by a factor of ~2).</p>
+<p>TO DO: add a path variable so that this is more flexible, add contingency in the homemade interpolation for if metallicity is not zero</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>temp</strong> (<em>float</em>) – temperature value</p></li>
+<li><p><strong>log_g</strong> (<em>float</em>) – log(g) value</p></li>
+<li><p><strong>reg</strong> (<em>list</em>) – region array ([start, end])</p></li>
+<li><p><strong>metallicity</strong> (<em>float</em>) – Optional, defaults to 0</p></li>
+<li><p><strong>normalize</strong> (<em>boolean</em>) – Optional, defaults to True</p></li>
+<li><p><strong>wlunit</strong> – Optional, wavelength unit. Defaults to angstroms (‘aa’), also supports microns (‘um’).</p></li>
+<li><p><strong>pys</strong> (<em>boolean</em>) – Optional, set to True use pysynphot. Defaults to False.</p></li>
+<li><p><strong>plot</strong> (<em>boolean</em>) – Produces a plot of the output spectrum when it is a value in between the grid points and pys = False (defaults to False).</p></li>
+<li><p><strong>resolution</strong> (<em>int</em>) – Spectral resolution to broaden the spectrum to. Default is 3000.</p></li>
+<li><p><strong>reduce_res</strong> (<em>boolean</em>) – Whether to impose “pixellation” onto the spectrum using a designated number of pixels per resolution element. Default is True.</p></li>
+<li><p><strong>npix</strong> (<em>int</em>) – Number of pixels per resolution element if pixellating the spectrum.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a wavelength array and a flux array, in the specified units, as a tuple. Flux is in units of F_lambda (I think)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uses the Phoenix models as the base for calculations.</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.interp_2_spec">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">interp_2_spec</code><span class="sig-paren">(</span><em class="sig-param">spec1</em>, <em class="sig-param">spec2</em>, <em class="sig-param">ep1</em>, <em class="sig-param">ep2</em>, <em class="sig-param">val</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.interp_2_spec" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spec1</strong> (<em>list</em>) – first spectrum array (fluxes only)</p></li>
+<li><p><strong>spec2</strong> (<em>list</em>) – second spectrum array (fluxes only)</p></li>
+<li><p><strong>ep1</strong> (<em>float</em>) – First gridpoint of the value we want to interpolate to.</p></li>
+<li><p><strong>ep2</strong> (<em>float</em>) – Second gridpoint of the value we want to interpolate to.</p></li>
+<li><p><strong>val</strong> (<em>float</em>) – a value between ep1 and ep2 that we wish to interpolate to.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a spectrum without a wavelength parameter</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.loglikelihood">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">loglikelihood</code><span class="sig-paren">(</span><em class="sig-param">p0</em>, <em class="sig-param">nspec</em>, <em class="sig-param">ndust</em>, <em class="sig-param">data</em>, <em class="sig-param">broadening</em>, <em class="sig-param">r</em>, <em class="sig-param">w='aa'</em>, <em class="sig-param">pysyn=False</em>, <em class="sig-param">dust=False</em>, <em class="sig-param">norm=True</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.loglikelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>The natural logarithm of the joint likelihood.
+Set to the chisquare value. (we want uniform acceptance weighted by the significance)</p>
+<p>Possible kwargs are reg (region), wlunit (‘um’ or ‘aa’), dust (defaults to False),              normalize (defaults to True), pysyn (defaults to False),</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>list</em>) – a sample containing individual parameter values. Then p0[0: n] = temp, p0[n : 2n] = lg, p0[2n : -1] = dust temps</p></li>
+<li><p><strong>nspec</strong> (<em>int</em>) – number of spectra/stars</p></li>
+<li><p><strong>ndust</strong> (<em>int</em>) – number of dust continuum components</p></li>
+<li><p><strong>data</strong> (<em>list</em>) – the set of data/observations</p></li>
+<li><p><strong>flux_ratio</strong> (<em>array</em>) – set of flux ratios with corresponding wavelength value for location of ratio</p></li>
+<li><p><strong>broadening</strong> (<em>int</em>) – The instrumental resolution of the spectra</p></li>
+<li><p><strong>r</strong> (<em>list</em>) – region to use when calculating liklihood</p></li>
+<li><p><strong>w</strong> (<em>string</em>) – Wavelength unit, options are “aa” and “um”. Default is “aa”.</p></li>
+<li><p><strong>pysyn</strong> (<em>bool</em>) – Use pysynphot to calculate spectra. Default is False.</p></li>
+<li><p><strong>dust</strong> (<em>bool</em>) – Add dust continuum? Default is False.</p></li>
+<li><p><strong>norm</strong> (<em>bool</em>) – Normalize spectra when fitting. Default is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a reduced chi square value corresponding to the quality of the fit.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>cs (float)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>current options: arbitrary stars, dust (multi-valued).
+To do: fit for broadening or vsini.</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.logposterior">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">logposterior</code><span class="sig-paren">(</span><em class="sig-param">p0</em>, <em class="sig-param">nspec</em>, <em class="sig-param">ndust</em>, <em class="sig-param">data</em>, <em class="sig-param">broadening</em>, <em class="sig-param">r</em>, <em class="sig-param">wu='aa'</em>, <em class="sig-param">pysyn=False</em>, <em class="sig-param">dust=False</em>, <em class="sig-param">norm=True</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.logposterior" title="Permalink to this definition">¶</a></dt>
+<dd><p>The natural logarithm of the joint posterior.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p0</strong> (<em>list</em>) – a sample containing individual parameter values. Then p0[0: n] = temp, p0[n : 2n] = lg, p0[2n+1] = flux ratio, p0[2n + 2] = extinction, p0[2n+3:-1] = dust temps</p></li>
+<li><p><strong>nspec</strong> (<em>int</em>) – number of spectra/stars</p></li>
+<li><p><strong>ndust</strong> (<em>int</em>) – number of dust continuum components</p></li>
+<li><p><strong>data</strong> (<em>list</em>) – the set of data/observations</p></li>
+<li><p><strong>flux_ratio</strong> (<em>array</em>) – set of flux ratios with corresponding wavelength value for location of ratio</p></li>
+<li><p><strong>broadening</strong> (<em>int</em>) – The instrumental resolution of the spectra</p></li>
+<li><p><strong>r</strong> (<em>list</em>) – region to use when calculating liklihood</p></li>
+<li><p><strong>w</strong> (<em>string</em>) – Wavelength unit, options are “aa” and “um”. Default is “aa”.</p></li>
+<li><p><strong>pysyn</strong> (<em>bool</em>) – Use pysynphot to calculate spectra. Default is False.</p></li>
+<li><p><strong>dust</strong> (<em>bool</em>) – Add dust continuum? Default is False.</p></li>
+<li><p><strong>norm</strong> (<em>bool</em>) – Normalize spectra when fitting. Default is True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The log of the liklihood of the fit being pulled from the model distribution.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>lh (float)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Assuming a uniform prior for now</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.make_bb_continuum">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">make_bb_continuum</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">dust_arr</em>, <em class="sig-param">wl_unit='um'</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.make_bb_continuum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a dust continuum to an input spectrum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>spec</strong> (<em>list</em>) – spectrum array</p></li>
+<li><p><strong>dust_arr</strong> (<em>list</em>) – an array of dust temperatures</p></li>
+<li><p><strong>wl_unit</strong> (<em>string</em>) – wavelength unit - supports ‘aa’ or ‘um’. Default is ‘um’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a spectrum array with dust continuum values added to the flux.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.make_reg">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">make_reg</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">flux</em>, <em class="sig-param">waverange</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.make_reg" title="Permalink to this definition">¶</a></dt>
+<dd><p>given some wavelength range as an array, output flux and wavelength vectors within that range.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>flux</strong> (<em>list</em>) – flux array</p></li>
+<li><p><strong>waverange</strong> (<em>list</em>) – wavelength range array</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>wavelength and flux vectors within the given range</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.make_varied_param">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">make_varied_param</code><span class="sig-paren">(</span><em class="sig-param">init</em>, <em class="sig-param">sig</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.make_varied_param" title="Permalink to this definition">¶</a></dt>
+<dd><p>randomly varies a parameter within a gaussian range based on given std deviation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>init</strong> (<em>float</em>) – initial value</p></li>
+<li><p><strong>sig</strong> (<em>float</em>) – std deviation of gaussian to draw from</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>the varied parameter.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.plots">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">plots</code><span class="sig-paren">(</span><em class="sig-param">wave</em>, <em class="sig-param">flux</em>, <em class="sig-param">l</em>, <em class="sig-param">lw=1</em>, <em class="sig-param">labels=True</em>, <em class="sig-param">xscale='log'</em>, <em class="sig-param">yscale='log'</em>, <em class="sig-param">save=False</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.plots" title="Permalink to this definition">¶</a></dt>
+<dd><p>makes a basic plot - input a list of wave and flux arrays, and a label array for the legend.
+If you want to label your axes, set labels=True and enter them interactively.
+You can also set xscale and yscale to what you want, and set it to save if you’d like.
+Natively creates a log-log plot with labels but doesn’t save it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wave</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>flux</strong> (<em>list</em>) – flux array</p></li>
+<li><p><strong>l</strong> (<em>list</em>) – array of string names for legend labels.</p></li>
+<li><p><strong>lw</strong> (<em>float</em>) – linewidths for plot. Default is 1.</p></li>
+<li><p><strong>labels</strong> (<em>boolean</em>) – Toggle axis labels. Initiates interactive labeling. Defaults to True.</p></li>
+<li><p><strong>xscale</strong> (<em>string</em>) – Set x axis scale. Any matplotlib scale argument is allowed. Default is “log”.</p></li>
+<li><p><strong>yscale</strong> (<em>string</em>) – Set y axis scale. Any matplotlib scale argument is allowed. Default is “log”.</p></li>
+<li><p><strong>save</strong> (<em>boolean</em>) – Saves figure in local directory with an interactively requested title. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.redres">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">redres</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">factor</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.redres" title="Permalink to this definition">¶</a></dt>
+<dd><p>Imposes instrumental resolution limits on a spectrum and wavelength array
+Assumes evenly spaced wl array</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.rmlines">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">rmlines</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.rmlines" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edits an input spectrum to remove emission lines</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength</p></li>
+<li><p><strong>spec</strong> (<em>list</em>) – spectrum.</p></li>
+<li><p><strong>add_line</strong> (<em>boolean</em>) – to add more lines to the linelist (interactive)</p></li>
+<li><p><strong>buff</strong> (<em>float</em>) – to change the buffer size, input a float here. otherwise the buffer size defaults to 15 angstroms</p></li>
+<li><p><strong>uni</strong> (<em>boolean</em>) – specifies unit for input spectrum wavelengths (default is microns) [T/F]</p></li>
+<li><p><strong>conv</strong> (<em>boolean</em>) – if unit is true, also specify conversion factor (wl = wl * conv) to microns</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>spectrum with the lines in the linelist file removed if they are in emission.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.run_emcee">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">run_emcee</code><span class="sig-paren">(</span><em class="sig-param">fname</em>, <em class="sig-param">nwalkers</em>, <em class="sig-param">nsteps</em>, <em class="sig-param">ndim</em>, <em class="sig-param">nburn</em>, <em class="sig-param">pos</em>, <em class="sig-param">nspec</em>, <em class="sig-param">ndust</em>, <em class="sig-param">data</em>, <em class="sig-param">broadening</em>, <em class="sig-param">r</em>, <em class="sig-param">nthin=10</em>, <em class="sig-param">w='aa'</em>, <em class="sig-param">pys=False</em>, <em class="sig-param">du=False</em>, <em class="sig-param">no=True</em>, <em class="sig-param">which='em'</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.run_emcee" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the emcee code to fit a spectrum</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fname</strong> (<em>string</em>) – input file name to use</p></li>
+<li><p><strong>nwalkers</strong> (<em>int</em>) – number of walkers to use</p></li>
+<li><p><strong>nsteps</strong> (<em>int</em>) – number of steps for each walker to take</p></li>
+<li><p><strong>ndim</strong> (<em>int</em>) – number of dimensions to fit to. For a single spectrum to fit temperature and log(g) for, ndim would be 2, for example.</p></li>
+<li><p><strong>nburn</strong> (<em>int</em>) – number of steps to discard before starting the sampling. Should be large enough that the walkers are well distributed before sampling starts.</p></li>
+<li><p><strong>pos</strong> (<em>list</em>) – array containing the initial guesses for temperature, log g, flux ratio, and extinction</p></li>
+<li><p><strong>nspec</strong> (<em>int</em>) – number of spectra to fit to. For a single spectrum fit this would be 1, for a two component fit this should be 2.</p></li>
+<li><p><strong>ndust</strong> (<em>int</em>) – number of dust continuum components to fit to. (untested)</p></li>
+<li><p><strong>data</strong> (<em>list</em>) – the spectrum to fit to</p></li>
+<li><p><strong>flux_ratio</strong> (<em>list</em>) – an array with a series of flux ratios, followed by the wavelength at which they were measured.</p></li>
+<li><p><strong>broadening</strong> (<em>float</em>) – the instrumental resolution of the input data, or the desired resolution to use to fit.</p></li>
+<li><p><strong>r</strong> (<em>list</em>) – a two valued array containing the region to fit within, in microns.</p></li>
+<li><p><strong>nthin</strong> (<em>int</em>) – the sampling rate of walker steps to save. Default is 10.</p></li>
+<li><p><strong>w</strong> (<em>string</em>) – the wavelength unit to use. Accepts ‘um’ and ‘aa’. Default is ‘aa’.</p></li>
+<li><p><strong>pys</strong> (<em>boolean</em>) – Whether to use pysynphot for spectral synthesis (if true). Default is False.</p></li>
+<li><p><strong>du</strong> (<em>boolean</em>) – Whether to fit to dust components. Default is False.</p></li>
+<li><p><strong>no</strong> (<em>boolean</em>) – Whether to normalize the spectra while fitting. Default is True.</p></li>
+<li><p><strong>which</strong> (<em>string</em>) – Use an ensemble sampler (‘em’) or parallel tempered sampling (‘pt’). Default is ‘em’. More documentation can be found in the emcee docs.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is still in active development and doesn’t always work.</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.shift">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">shift</code><span class="sig-paren">(</span><em class="sig-param">wl</em>, <em class="sig-param">spec</em>, <em class="sig-param">rv</em>, <em class="sig-param">bcarr</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.shift" title="Permalink to this definition">¶</a></dt>
+<dd><p>for bccorr, use bcarr as well, which should be EITHER:
+1) the pure barycentric velocity calculated elsewhere OR
+2) a dictionary with the following entries (all as floats, except the observatory name code, if using):
+{‘ra’: RA (deg), ‘dec’: dec (deg), ‘obs’: observatory name or location of observatory, ‘date’: JD of midpoint of observation}
+The observatory can either be an observatory code as recognized in the PyAstronomy.pyasl.Observatory list of observatories,
+or an array containing longitude, latitude (both in deg) and altitude (in meters), in that order.</p>
+<p>To see a list of observatory codes use “PyAstronomy.pyasl.listobservatories()”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wl</strong> (<em>list</em>) – wavelength array</p></li>
+<li><p><strong>spec</strong> (<em>list</em>) – flux array</p></li>
+<li><p><strong>rv</strong> (<em>float</em>) – Rotational velocity value</p></li>
+<li><p><strong>bcarr</strong> (<em>list</em>) – if len = 1, contains a precomputed barycentric velocity. Otherwise, should
+be a dictionary with the following properties: either an “obs” keyword and code from pyasl
+or a long, lat, alt set of floats identifying the observatory coordinates.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>barycentric velocity corrected wavelength vector using bccorr().</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="model_fit_tools_v2.update_progress">
+<code class="sig-prename descclassname">model_fit_tools_v2.</code><code class="sig-name descname">update_progress</code><span class="sig-paren">(</span><em class="sig-param">progress</em><span class="sig-paren">)</span><a class="headerlink" href="#model_fit_tools_v2.update_progress" title="Permalink to this definition">¶</a></dt>
+<dd><p>Displays or updates a console progress bar</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>Progress</strong> (<em>float</em>) – Accepts a float between 0 and 1. Any int will be converted to a float.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A value under 0 represents a ‘halt’.
+A value at 1 or bigger represents 100%</p>
+</div>
+</dd></dl>
+
 </div>
 </div>
 

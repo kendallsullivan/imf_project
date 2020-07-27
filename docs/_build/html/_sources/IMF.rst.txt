@@ -1,7 +1,5 @@
-IMF module
-==========
+IMF.py
+==============
 
 .. automodule:: IMF
    :members:
-   :undoc-members:
-   :show-inheritance:
