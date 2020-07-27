@@ -1,0 +1,9 @@
+docs
+====
+
+.. toctree::
+   :maxdepth: 4
+
+   IMF
+   conf
+   model_fit_tools_v2

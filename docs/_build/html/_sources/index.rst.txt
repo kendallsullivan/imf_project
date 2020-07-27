@@ -5,7 +5,6 @@ Welcome to specfit's documentation!
    :maxdepth: 3
    :caption: Contents:
 
-   IMF.rst
    About.rst
    API.rst
 

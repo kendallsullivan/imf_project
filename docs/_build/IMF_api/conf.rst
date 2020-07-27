@@ -1,7 +1,7 @@
-IMF module
-==========
+conf module
+===========
 
-.. automodule:: IMF
+.. automodule:: conf
    :members:
    :undoc-members:
    :show-inheritance:
