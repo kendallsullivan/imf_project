@@ -1,34 +1,19 @@
-#Kendall Sullivan
-
-#EMCEE VERSION OF MCMC CODE
-
-#TO DO: Write add_disk function, disk/dust to possible fit params
-
-#20190522: Added extinction with a fixed value to model fitting (prior to fit), updated models to theoretical PHOENIX BT-SETTL models with the 
-#CFIST line list downloaded from the Spanish Virtual Observatory "Theoretical Tools" resource. 
-#20190901 (ish) Updated model spectra to be the PHOENIX BT-SETTL models with the CFIST 2011 line list downloaded from France Allard's website
-#and modified from the FORTRAN format into more modern standard text file format before using
-#20200514 Commented everything that's out of beta/active development (or at the very least mostly done) - that goes through the end of get_spec
-#the remaining content probably needs to be pared down and likely should be troubleshot fairly carefully
-
 """
 .. module:: model_fit_tools_v2
    :platform: Unix, Mac
-   :synopsis: Large package with various spectral synthesis and utility tools.
+   :synopsis: Basic spectrum creation module
 
 .. moduleauthor:: Kendall Sullivan <kendallsullivan@utexas.edu>
 
-Dependencies: numpy, pysynphot, matplotlib, astropy, scipy, PyAstronomy, emcee, corner, extinction.
+Dependencies: numpy, matplotlib, astropy, scipy, model_fit_tools_v2, MPI4py
 """
 
 import numpy as np
-#import pysynphot as ps
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import os 
 from glob import glob
 from astropy import units as u
-#from matplotlib import rc
 from itertools import permutations 
 import time, sys
 import scipy.stats
@@ -697,7 +682,7 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = False, wlunit = 'aa'
 
 		return spwave, spflux
 
-a, b = get_spec(2966, 4, [0.51, 0.5350], normalize = False, resolution = 34000, reduce_res = True)
+# a, b = get_spec(2966, 4, [0.51, 0.5350], normalize = False, resolution = 34000, reduce_res = True)
 # print(len(a), len(b))
 # c, d = get_spec(3410, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = False)
 # e,f = get_spec(3410, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = True)

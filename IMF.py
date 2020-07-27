@@ -1,6 +1,6 @@
 """
 .. module:: IMF
-   :platform: Unix, Windows
+   :platform: Unix, Mac
    :synopsis: Synthetic population production
 
 .. moduleauthor:: Kendall Sullivan <kendallsullivan@utexas.edu>
@@ -27,7 +27,7 @@ import matplotlib.cm as cm
 import extinction
 from mpi4py import MPI
 import time 
-# from labellines import labelLine, labelLines
+from labellines import labelLine, labelLines
 
 def redres(wl, spec, factor):
 	"""Reduces spectral resolution to mimic pixellation at the surface of a CCD
@@ -2731,8 +2731,8 @@ def compare_two_runs(run1, run2):
 
 # bf = [0.6, 0.8, 1]
 
-run_pop(144, 'run24', new_pop = True, region1 = [0.56, 0.69], region2 = [0.385, 0.54], bf = [0.6, 0.8, 1], md = [0.8, 1], \
-	age_range = [9, 11], extinction = 2, res1 = 2100, res2 = 1650, nsteps = 50, reduce_ms = True, m_reduce = 0.7)
+# run_pop(144, 'run24', new_pop = True, region1 = [0.56, 0.69], region2 = [0.385, 0.54], bf = [0.6, 0.8, 1], md = [0.8, 1], \
+# 	age_range = [9, 11], extinction = 2, res1 = 2100, res2 = 1650, nsteps = 50, reduce_ms = True, m_reduce = 0.7)
 # final_analysis(96, 'run24', res = 2100, plots = False, reg = [5600, 6900])
 # final_analysis(96, 'run20', res = 2100, plots = False, reg = [5600, 6900])
 # final_analysis(480, 'run21', res = 2100, plots = False, reg = [5600, 6900])
