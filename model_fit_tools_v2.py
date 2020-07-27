@@ -6,10 +6,14 @@
 
 #20190522: Added extinction with a fixed value to model fitting (prior to fit), updated models to theoretical PHOENIX BT-SETTL models with the 
 #CFIST line list downloaded from the Spanish Virtual Observatory "Theoretical Tools" resource. 
+#20190901 (ish) Updated model spectra to be the PHOENIX BT-SETTL models with the CFIST 2011 line list downloaded from France Allard's website
+#and modified from the FORTRAN format into more modern standard text file format before using
+#20200514 Commented everything that's out of beta/active development (or at the very least mostly done) - that goes through the end of get_spec
+#the remaining content probably needs to be pared down and likely should be troubleshot fairly carefully
 
 """
 .. module:: model_fit_tools_v2
-   :platform: Unix, Windows
+   :platform: Unix, Mac
    :synopsis: Large package with various spectral synthesis and utility tools.
 
 .. moduleauthor:: Kendall Sullivan <kendallsullivan@utexas.edu>
@@ -107,10 +111,8 @@ def extinct(wl, spec, av, rv = 3.1, unit = 'aa'):
 
 	"""
 	ext_mag = extinction.fm07(wl, av, unit)
-	ext_flux = [10 ** (-0.4 * e) for e in ext_mag]
-	transm = ext_flux / max(ext_flux)
-	spec = [spec[n] * transm[n] for n in range(len(spec))]
-	return spec
+	spec = extinction.apply(ext_mag, spec)
+	return np.array(spec)
 	
 def plots(wave, flux, l, lw=1, labels=True, xscale='log', yscale='log', save=False):
 	"""makes a basic plot - input a list of wave and flux arrays, and a label array for the legend.
@@ -164,7 +166,7 @@ def find_nearest(array, value):
 	return idx
 
 def chisq(model, data, var):
-	"""Calculates reduced chi square value of a model and data with a given variance.
+	"""Calculates chi square values of a model and data with a given variance.
 
 	Args:
 		model (list): model array.
@@ -177,14 +179,18 @@ def chisq(model, data, var):
 	"""
 	if var == 0:
 		var = 10
+	#make sure that the two arrays are comparable
 	if len(data) == len(model):
-		#xs = [np.abs(model[n] - data[n]) for n in range(len(model))]
+		#if there's a variance array, iterate through it as i iterate through the model and data
 		if np.size(var) > 1:
+			#calculate the chi square vector using xs = (model - data)^2/variance^2 per pixel
 			xs = [((model[n] - data[n])**2)/var[n]**2 for n in range(len(model))]
+		#otherwise do the same thing but using the same variance value everywhere
 		else:
 			xs = [((model[n] - data[n])**2)/var**2 for n in range(len(model))]
-
+		#return the chi square vector
 		return np.asarray(xs)#np.sum(xs)/len(xs)
+	#if the two vectors aren't the same length, yell at me
 	else:
 		return('data must be equal in length to model')
 
@@ -227,7 +233,7 @@ def shift(wl, spec, rv, bcarr, **kwargs):
 
 	return ''
 
-def broaden(even_wl, modelspec_interp, res, vsini, limb, plot = False):
+def broaden(even_wl, modelspec_interp, res, vsini = 0, limb = 0, plot = False):
 	"""Adds resolution, vsin(i) broadening, taking into account limb darkening.
 
 	Args: 
@@ -242,31 +248,63 @@ def broaden(even_wl, modelspec_interp, res, vsini, limb, plot = False):
 		a tuple containing an evenly spaced wavelength vector spanning the width of the original wavelength range, and a corresponding flux vector
 
 	"""
-	#sig = np.mean(even_wl)/res
 
-	broad = pyasl.instrBroadGaussFast(even_wl, modelspec_interp, res, maxsig=5)
+	#regrid by finding the smallest wavelength step 
+	mindiff = np.inf
 
+	for n in range(1, len(even_wl)):
+		if even_wl[n] - even_wl[n-1] < mindiff:
+			mindiff = even_wl[n] - even_wl[n-1]
+
+	#interpolate the input values
+	it = interp1d(even_wl, modelspec_interp)
+
+	#make a new wavelength array that's evenly spaced with the smallest wavelength spacing in the input wl array
+	w = np.arange(min(even_wl), max(even_wl), mindiff)
+
+	sp = it(w)
+
+	#do the instrumental broadening and truncate the ends because they get messy
+	broad = pyasl.instrBroadGaussFast(w, sp, res, maxsig=5)
+	broad[0:5] = broad[5] 
+	broad[len(broad)-10:len(broad)] = broad[len(broad) - 11]
+
+	#if I want to impose stellar parameters of v sin(i) and limb darkening, do that here
 	if vsini != 0 and limb != 0:
-		rot = pyasl.rotBroad(even_wl, broad, limb, vsini)#, edgeHandling='firstlast')
+		rot = pyasl.rotBroad(w, broad, limb, vsini)#, edgeHandling='firstlast')
+	#otherwise just move on
 	else:
 		rot = broad
 
-	#modelspec_interp = [(modelspec_interp[n] / max(modelspec_interp))  for n in range(len(modelspec_interp))]
-	#broad = [broad[n]/max(broad) for n in range(len(broad))]
-	#rot = [(rot[n]/max(rot))  for n in range(len(rot))]
-
+	#Make a plotting option just in case I want to double check that this is doing what it's supposed to
 	if plot == True:
 
 		plt.figure()
-		plt.plot(even_wl, modelspec_interp, label = 'model')
-		plt.plot(even_wl, broad, label = 'broadened')
-		plt.plot(even_wl, rot, label = 'rotation')
+		plt.plot(w, sp, label = 'model')
+		plt.plot(w, broad, label = 'broadened')
+		plt.plot(w, rot, label = 'rotation')
 		plt.legend(loc = 'best')
 		plt.xlabel('wavelength (angstroms)')
 		plt.ylabel('normalized flux')
 		plt.savefig('rotation.pdf')
 
-	return even_wl, rot
+	#return the wavelength array and the broadened flux array
+	return w, rot
+
+def redres(wl, spec, factor):
+	"""Imposes instrumental resolution limits on a spectrum and wavelength array
+	Assumes evenly spaced wl array
+
+	"""
+	new_stepsize = (wl[1] - wl[0]) * factor
+
+	wlnew = np.arange(min(wl), max(wl), new_stepsize)
+
+	i = interp1d(wl, spec)
+	specnew = i(wlnew)
+
+	#return the reduced spectrum and wl array
+	return wlnew, specnew
 
 def rmlines(wl, spec, **kwargs):
 	"""Edits an input spectrum to remove emission lines
@@ -274,7 +312,7 @@ def rmlines(wl, spec, **kwargs):
 	Args: 
 		wl (list): wavelength
 		spec (list): spectrum.
-		add_lines (boolean): to add more lines to the linelist (interactive)
+		add_line (boolean): to add more lines to the linelist (interactive)
 		buff (float): to change the buffer size, input a float here. otherwise the buffer size defaults to 15 angstroms
 		uni (boolean): specifies unit for input spectrum wavelengths (default is microns) [T/F]
 		conv (boolean): if unit is true, also specify conversion factor (wl = wl * conv) to microns
@@ -283,19 +321,26 @@ def rmlines(wl, spec, **kwargs):
 		spectrum with the lines in the linelist file removed if they are in emission.
 
 	"""
+	#reads in a linelist, which contains the names, transition, and wavelength of each emission line
 	names, transition, wav = np.genfromtxt('linelist.txt', unpack = True, autostrip = True)
+	#define the gap to mark out
 	space = 1.5e-3 #15 angstroms -> microns
 
+	#check the kwargs
 	for key, value in kwargs.items():
-		if key == add_lines:
+		#if i want to add a line, use add_lines, which then lets me append a new line
+		if key == add_line:
 			wl.append(input('What wavelengths (in microns) do you want to add? '))
+		#if i want to change the size of region that's removed, use a new buffer
 		if key == buff:
 			space = value
+		#if i want to change the unit, use uni to do so
 		if key == uni:
 			wl = wl * value
 
 	diff = wl[10] - wl[9]
 
+	#for each line, walk trhough and remove the line, replacing it with the mean value of the end points of the removed region
 	for line in wav:
 		end1 = find_nearest(wl, line-space)
 		end2 = find_nearest(wl, line+space)
@@ -303,7 +348,7 @@ def rmlines(wl, spec, **kwargs):
 			for n in range(len(wl)):
 				if wl[n] > wl[end1] and wl[n] < wl[end2] and spec[n] > (np.mean(spec[range(end1 - 10, end1)]) + np.mean(spec[range(end2, end2 + 10)]))/2:
 					spec[n] = (np.mean(spec[range(end1 - 10, end1)]) + np.mean(spec[range(end2, end2 + 10)]))/2
-	#print(len(spec), len(wl))
+	#return the spectrum
 	return spec
 
 def make_reg(wl, flux, waverange):
@@ -316,15 +361,22 @@ def make_reg(wl, flux, waverange):
 
 	Returns: 
 		wavelength and flux vectors within the given range
-	
-	Note:
-		TO DO: interpolate instead of just pulling the closest indices
 
 	"""
-	min_wl = find_nearest(wl, min(waverange))
-	max_wl = find_nearest(wl, max(waverange))
-	wlslice = wl[min_wl:max_wl]
-	fluxslice = flux[min_wl:max_wl]
+	#find the smallest separation in the wavelength array
+	wlspace = np.inf
+	for n in range(1, len(wl)):
+		if wl[n] - wl[n-1] < wlspace:
+			wlspace = wl[n] - wl[n-1]
+
+	#interpolate the input spectrum
+	wl_interp = interp1d(wl, flux)
+	#make a new wavelength array that's evenly spaced with the minimum spacing
+	wlslice = np.arange(min(waverange), max(waverange), wlspace)
+	#use the interpolation to get the evenly spaced flux
+	fluxslice = wl_interp(wlslice)
+
+	#return the new wavelength and flux
 	return wlslice, fluxslice
 
 def interp_2_spec(spec1, spec2, ep1, ep2, val):
@@ -340,19 +392,18 @@ def interp_2_spec(spec1, spec2, ep1, ep2, val):
 
 	"""	
 	ret_arr = []
+	#make sure the two spectra are the same length
 	if len(spec1) == len(spec2):
+		#go through the spectra
 		for n in range(len(spec1)):
-			v = ((spec2[n] - spec1[n])/(ep2 - ep1)) * (val - ep1) + spec1[n]#np.interp(val, np.array([ep1, ep2]), np.array([spec1[n], spec2[n]]))
-			#tv = interp1d(np.array([ep1, ep2]), np.array([spec1[n], spec2[n]]))
-			#v = tv(val)
-			# v = np.abs((spec1[n] * (ep2 - val) + spec2[n] * (val - ep2))/(ep2 - ep1))
-			# if np.isnan(v) or np.isinf(v) or v < 0:
-			# 	print('There are undefined values in the interpolation. Here are the input parameters: \n', spec1[n], spec2[n], ep1, ep2, v)
-
-			# 	v = 0
+			#the new value is the first gridpoint plus the difference between them weighted by the spacing between the two gridpoints and the desired value.
+			#this is a simple linear interpolation at each wavelength point
+			v = ((spec2[n] - spec1[n])/(ep2 - ep1)) * (val - ep1) + spec1[n]
 			ret_arr.append(v)
+		#return the new interpolated flux array
 		return ret_arr
 
+	#otherwise yell at me because i'm trying to interpolate things that don't have the same length
 	else:
 		return('the spectra must have the same length')
 
@@ -373,8 +424,11 @@ def make_varied_param(init, sig):
 
 def find_model(temp, logg, metal):
 	"""Finds a filename for a phoenix model with values that fall on a grid point.
-	Assumes that model files are in a subdirectory of the working directory, with that subdirectory called "phoenix"
-	and that the file names take the form "lte{temp}-{log g}-{metallicity}.BT-Settl.7.dat.txt"
+	Assumes that model files are in a subdirectory of the working directory, with that subdirectory called "SPECTRA"
+	and that the file names take the form "lte{temp}-{log g}-{metallicity}.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits"
+	The file should contain a flux column, where the flux is in units of log(erg/s/cm^2/cm/surface area). There should also be a
+	wavelength file in the spectra directory called WAVE_PHOENIX-ACES-AGSS-COND-2011.fits, with wavelength in Angstroms.
+	THE NEW SPECTRA are from Husser et al 2013.
 
 	Args: 
 		temperature (float): temperature value
@@ -382,27 +436,19 @@ def find_model(temp, logg, metal):
 		metallicity (float): Metallicity value
 
 	Note:
-		Values must fall on the grid points of the model grid.
+		Values must fall on the grid points of the model grid. Only supports log(g) = 4 with current spectra directory.
 
 	Returns: 
 		file name of the phoenix model with the specified parameters.
 
 	"""
-	# if temp < 2600:
-	# 	temp = str(int(temp*1e-2)).zfill(3)
-	# 	metal = str(float(metal)).zfill(3)
-	# 	logg = str(float(logg)).zfill(3)
-	# 	file = glob('phoenix/lte{}-{}-{}.BT-Settl.7.dat.txt'.format(temp, logg, metal))[0]
-	# 	return file
-
-	# else:
-	temp = str(int(temp*1e-2)).zfill(3)
+	temp = str(int(temp)).zfill(5)
 	metal = str(float(metal)).zfill(3)
 	logg = str(float(logg)).zfill(3)
-	file = glob('SPECTRA/lte{}-{}-0.0a+{}.BT-Settl.spec.7'.format(temp, logg, metal))[0]
+	file = glob('SPECTRA/lte{}-{}0-{}.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits'.format(temp, logg, metal))[0]
 	return file
 
-def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa', pys = False, plot = False, model_dir = 'phoenix'):
+def get_spec(temp, log_g, reg, metallicity = 0, normalize = False, wlunit = 'aa', pys = False, plot = False, model_dir = 'phoenix', resolution = 3000, reduce_res = True, npix = 3):
 	"""Creates a spectrum from given parameters, either using the pysynphot utility from STScI or using a homemade interpolation scheme.
 	Pysynphot may be slightly more reliable, but the homemade interpolation is more efficient (by a factor of ~2).
 	
@@ -417,6 +463,9 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 		wlunit: Optional, wavelength unit. Defaults to angstroms ('aa'), also supports microns ('um').
 		pys (boolean): Optional, set to True use pysynphot. Defaults to False.
 		plot (boolean): Produces a plot of the output spectrum when it is a value in between the grid points and pys = False (defaults to False).
+		resolution (int): Spectral resolution to broaden the spectrum to. Default is 3000.
+		reduce_res (boolean): Whether to impose "pixellation" onto the spectrum using a designated number of pixels per resolution element. Default is True.
+		npix (int): Number of pixels per resolution element if pixellating the spectrum.
 
 	Returns: 
 		a wavelength array and a flux array, in the specified units, as a tuple. Flux is in units of F_lambda (I think)
@@ -425,7 +474,6 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 		Uses the Phoenix models as the base for calculations. 
 
 	"""
-	t1 = time.clock()
 	if pys == True:
 	#grabs a phoenix spectrum using Icat calls via pysynphot (from STScI) defaults to microns
 	#get the spectrum
@@ -442,32 +490,49 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 		#pick our temperature and log g values (assume metallicity is constant for now)
 		#pull a spectrum 
 
-		files = glob('SPECTRA/lte*.7')
+		#initialize a time variable if i want to check how long this takes to run
+		t1 = time.clock()
+		
+		#list all the spectrum files
+		files = glob('SPECTRA/lte*')
+		#initialize a tempeature array
 		t = []
+		#sort through and pick out the temperature value from each file name
 		for n in range(len(files)):
 			nu = files[n].split('-')[0].split('e')[1]
 			if len(nu) < 4:
 				nu = int(nu) * 1e2
 				t.append(nu)
+			else:
+				t.append(int(nu))
+		#sort the temperature array so it's in order
 		t = sorted(t)
+		#initialize a non-redundant array
 		temps = [min(t)]
 
+		#go through the sorted array and if the temperature isn't already in the non-redundant array, put it in
 		for n, tt in enumerate(t):
 			if tt > temps[-1]:
 				temps.append(tt)
 
+		#find the closest temperature to the input value
 		t1_idx = find_nearest(temps, temp)
 
+		#if that input value is on a grid point, make the second spectrum the same temperature
 		if temps[t1_idx] == temp:
 			t2_idx = t1_idx
+		#if the nearest temp value is above the input value, the other temperature should fall below
 		elif temps[t1_idx] > temp:
 			t2_idx = t1_idx - 1
+		#otherwise the second temperature should fall above
 		else:
 			t2_idx = t1_idx + 1
 
+		#temp1 and temp2 have been selected to enclose the temperature, or to be the temperature exactly if the temp requested is on a grid point
 		temp1 = temps[t1_idx]
 		temp2 = temps[t2_idx]
 
+		#now do the same thing for log(g)
 		l = sorted([float(files[n].split('-')[1]) for n in range(len(files))])
 
 		lgs = [min(l)]
@@ -488,181 +553,112 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 		lg1 = lgs[lg1_idx]
 		lg2 = lgs[lg2_idx]
 
+
+		#so now I have four grid points: t1 lg1, t1 lg2, t2 lg1, t2 lg2. now i have to sort out whether some of those grid points are the same value
+		#first, get the wavelength vector for everything 
+		spwave = list(fits.open('SPECTRA/WAVE_PHOENIX-ACES-AGSS-COND-2011.fits')[0].data)
+		#define a first spectrum using t1 lg1 and unpack the spectrum 
 		file1 = find_model(temp1, lg1, 0)
-		w, s = np.genfromtxt(file1, usecols = (0,1), unpack = True)
+
+		#if I'm looking for a log(g) and a temperature that fall on a grid point, things are easy
+		#just open the file 
+		#the spectra are in units of erg/s/cm^2/cm, so divide by 1e8 to get erg/s/cm^2/A, then multiply by stellar area to get a physical flux
 		if lg1 == lg2 and temp1 == temp2:
-			f = open(file1, 'r')
-			spwave, spflux = [], []
-			for line in f:
-				l = line.strip().split(' ')
-				spwave.append(l[0].strip())
-				spflux.append(l[1].strip())
-			try:
-				spwave = [float(w) for w in spwave]
-			except:
-				spwave, spflux = [], []
-				for line in f:
-					l = line.strip().split(' ')
-					spwave.append(l[0].strip())
-					spflux.append(l[1].strip())	
+			spflux = list(fits.open(file1)[0].data) 
 
-				spwave = [float(w) for w in spwave]
-			spflux = [float(spflux[n].strip().replace('D', 'e')) for n in range(len(spflux))]
-
+		#If the points don't all fall on the grid points, we need to get the second spectrum at point t2 lg2, as well as the cross products
+		#(t1 lg2, t2 lg1)
 		else:
+			#find the second file as well (i already found t1 lg1 before this if/else loop)
 			file2 = find_model(temp2, lg2, 0)
-			f = open(file1, 'r')
-			wl1, spec1 = [], []
-			for line in f:
-				l = line.strip().split(' ')
-				wl1.append(l[0].strip())
-				if l[1] != '':
-					spec1.append(l[1].strip())
-				else:
-					spec1.append(l[2].strip())
-			try:
-				wl1 = [float(w) for w in wl1]
-			except:
-				f = open(file1 + 'new.txt')
-				wl1, spec1 = [], []
-				for line in f:
-					l = line.strip().split(' ')
-					wl1.append(l[0].strip())
-					if l[1] != '':
-						spec1.append(l[1].strip())
-					else:
-						spec1.append(l[2].strip())
-				wl1 = [float(w) for w in wl1]
+			#open the first file (again, from above) and make nicely formatted wl and flux arrays, doing all sorts of things to make sure the files read correctly
+			spec1 = list(fits.open(file1)[0].data)
 
-			spec1 = [float(spec1[n].strip().replace('D', 'e')) for n in range(len(spec1))]
+			#and do it again for the second pair of points (t2 lg2)
+			spec2 = list(fits.open(file2)[0].data)
+
+			#now do it for the two cross products 
+			#this is t1 lg2
+			f = find_model(temp1, lg2, 0)
+			t1_inter = list(fits.open(f)[0].data)
+
+			#and again for t2 lg1
+			f = find_model(temp2, lg1, 0)
+			t2_inter = list(fits.open(f)[0].data)
+			# for line in f:
+			# 	l = line.strip().split(' ')
+			# 	t2wave.append(l[0].strip())
+			# 	if l[1] != '':
+			# 		t2_inter.append(l[1].strip())
+			# 	else:
+			# 		t2_inter.append(l[2].strip())
 			
-			f = open(file2, 'r')
-			wl2, spec2 = [], []
-			for line in f:
-				l = line.strip().split(' ')
-				wl2.append(l[0].strip())
-				if l[1] != '':
-					spec2.append(l[1].strip())
-				else:
-					spec2.append(l[2].strip())
+			# t2wave = [float(w) for w in t2wave]
+			# try:
+			# 	t2_inter = [float(t2_inter[n]) for n in range(len(t2_inter))]
+			# except:
+			# 	print(find_model(temp2, lg1, 0))
 
-			try:
-				wl2 = [float(w) for w in wl2]
-			except:
-				f = open(file2 + 'new.txt')
-				wl2, spec2 = [], []
-				for line in f:
-					l = line.strip().split(' ')
+			#so now I have four spectra, and I need to interpolate them correctly to get to some point between the grid points in both log(g) and teff space
 
-					wl2.append(l[0].strip())
-					if l[1] != '':
-						spec2.append(l[1].strip())
-					else:
-						spec2.append(l[2].strip())
-				wl2 = [float(w) for w in wl2]
+			#make a new wl vector using the requested spectral region (which is given in microns, but we're working in angstroms) and that smallest wavelength step
+			# wls = np.arange(min(reg)*1e4, max(reg)*1e4, wl1[1] - wl1[0])
 
-			spec2 = [float(spec2[n].strip().replace('D', 'e')) for n in range(len(spec2))]
+			#Convert all the spectrafrom the weird PHOENIX units of log(s) + 8 to just s, where s is in units of erg/s/cm^2/A/surface area 
+			spec1, spec2, t1_inter, t2_inter = [s/1e8 for s in spec1], [s/1e8 for s in spec2], \
+				[s/1e8 for s in t1_inter], [s/1e8 for s in t2_inter]
 
-			if wlunit == 'um':
-				wl1 = [wl*1e-4 for wl in wl1]
-			if wlunit != 'um' and wlunit != 'aa':
-				factor = float(input('That unit is not recognized. Please input the multiplicative conversion factor to angstroms from your unit. For example, \
-					to convert to cm you would enter 1e-8. '))
-				wl1 = [w * factor for w in wl1]
+			#interpolate everything onto the same grid using the newly defined wavelength array
+			# iw1 = interp1d(wl1, spec1)
+			# spec1 = iw1(wls)
+			# iw2 = interp1d(wl2, spec2)
+			# spec2 = iw2(wls)
 
-			f = open(find_model(temp1, lg2, 0), 'r')
-			t1wave, t1_inter = [], []
-			for line in f:
-				l = line.strip().split(' ')
-				t1wave.append(l[0].strip())
-				if l[1] != '':
-					t1_inter.append(l[1].strip())
-				else:
-					t1_inter.append(l[2].strip())
-			try:
-				t1wave = [float(w) for w in t1wave]
-			except:
-				f = open(find_model(temp1, lg2, 0) + 'new.txt')
-				t1wave, t1_inter = [], []
-				for line in f:
-					l = line.strip().split(' ')
+			# it1 = interp1d(t1wave, t1_inter)
+			# t1_inter = it1(wls)
+			# it2 = interp1d(t2wave, t2_inter)
+			# t2_inter = it2(wls)
 
-					t1wave.append(l[0].strip())
-					if l[1] != '':
-						t1_inter.append(l[1].strip())
-					else:
-						t1_inter.append(l[2].strip())
-				t1wave = [float(w) for w in t1wave]
-
-			t1_inter = [float(t1_inter[n].strip().replace('D', 'e')) for n in range(len(t1_inter))]
-
-
-			f = open(find_model(temp2, lg1, 0), 'r')
-			t2wave, t2_inter = [], []
-			for line in f:
-				l = line.strip().split(' ')
-				t2wave.append(l[0].strip())
-				if l[1] != '':
-					t2_inter.append(l[1].strip())
-				else:
-					t2_inter.append(l[2].strip())
-
-			try:
-				t2wave = [float(w) for w in t2wave]
-			except:
-				f = open(find_model(temp2, lg1, 0) + 'new.txt')
-				t2wave, t2_inter = [], []
-				for line in f:
-					l = line.strip().split(' ')
-
-					t2wave.append(l[0].strip())
-					if l[1] != '':
-						t2_inter.append(l[1].strip())
-					else:
-						t2_inter.append(l[2].strip())
-				t2wave = [float(w) for w in t2wave]
-
-			t2_inter = [float(t2_inter[n].strip().replace('D', 'e')) for n in range(len(t2_inter))]
-
-			wls = np.linspace(min(reg)*1e4, max(reg)*1e4, int((max(reg)*1e4 - min(reg)*1e4) * 4))
-
-			iw1 = interp1d(wl1, spec1)
-			spec1 = iw1(wls)
-			iw2 = interp1d(wl2, spec2)
-			spec2 = iw2(wls)
-
-			it1 = interp1d(t1wave, t1_inter)
-			t1_inter = it1(wls)
-			it2 = interp1d(t2wave, t2_inter)
-			t2_inter = it2(wls)
-
+			#if t1 and t2 AND lg1 and lg2 are different, we need to interpolate first between the two log(g) points, then the two teff points
 			if lg1 != lg2 and temp1 != temp2:
 				t1_lg = interp_2_spec(spec1, t1_inter, lg1, lg2, log_g)
 				t2_lg = interp_2_spec(t2_inter, spec2, lg1, lg2, log_g)
 
 				tlg = interp_2_spec(t1_lg, t2_lg, temp1, temp2, temp)
 
-			elif lg1 == lg2:
+			#or if we're looking at the same log(g), we only need to interpolate in temperature
+			elif lg1 == lg2 and temp1 != temp2:
 				tlg = interp_2_spec(spec1, spec2, temp1, temp2, temp)
 
-			elif temp1 == temp2:
+			#similarly, if we're using the same temperature but different log(g), we only interpolate in log(g)
+			elif temp1 == temp2 and lg1 != lg2:
 				tlg = interp_2_spec(spec1, spec2, lg1, lg2, log_g)
 
+			#if you want, make a plot of all the different spectra to compare them
+			#this only plots the final interpolated spectrum and the two teff points that are interpolated, after the log(g) interpolation has occurred
 			if plot == True:
-				wl1a, tla = make_reg(wls, tlg, [1e4, 1e5])
-				wl1a, t1l1a = make_reg(wls, t1_lg, [1e4, 1e5])
-				wl1a, t1l2a = make_reg(wls, t2_lg, [1e4, 1e5])
+				wl1a, tla = make_reg(spwave, tlg, [1e4, 1e5])
+				wl1a, t1l1a = make_reg(spwave, t1_lg, [1e4, 1e5])
+				wl1a, t1l2a = make_reg(spwave, t2_lg, [1e4, 1e5])
 				plt.loglog(wl1a, tla, label = 'tl')
 				plt.loglog(wl1a, t1l1a, label = 't1l1')
 				plt.loglog(wl1a, t1l2a, label = 't1l2')
 				plt.legend()
 				plt.show()
 			
-			spwave = wls
+			#reassign some variables used above to match with the environment outside the if/else statement
+			# spwave = spwave
 			spflux = tlg
 
-
+	#convert the requested region into angstroms to match the wavelength vector
 	reg = [reg[n] * 1e4 for n in range(len(reg))]
+
+	# #make sure the flux array is a float not a string
+	# spflux = []
+	# for s in spf:
+	# 	spflux.append(float(s))
+
+	#and truncate the wavelength and flux vectors to contain only the requested region
 	spwave, spflux = make_reg(spwave, spflux, reg)
 	#you can choose to normalize
 	if normalize == True:
@@ -671,13 +667,24 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 				spflux = [spflux[n]/max(spflux) for n in range(len(spflux))]
 		else:
 			spflux = np.ones(len(spflux))
-	#and depending on if you want angstroms ('aa') or microns ('um') returned for wavelength
-	#return wavelength and flux as a tuple
+
+	#this is the second time object in case you want to check runtime
 	t2 = time.clock()
-
 	# print('runtime for spectral retrieval (s): ', t2 - t1)
-	#	print('runtime: ',  t2 - t1)
 
+	#broaden the spectrum to mimic the dispersion of a spectrograph using the input resolution
+	spwave, spflux = broaden(spwave, spflux, resolution)
+
+	#and reduce the resolution again to mimic pixellation from a CCD
+	#i should make this nicer - it currently assumes you want three resolution elements per angstrom, which isn't necessarily true
+	if reduce_res == True:
+		res_element = np.mean(spwave)/resolution
+		spec_spacing = spwave[1] - spwave[0]
+		if npix * spec_spacing < res_element:
+			factor = (res_element/spec_spacing)/npix
+			spwave, spflux = redres(spwave, spflux, factor)
+
+	#depending on the requested return wavelength unit, do that, then return wavelength and flux as a tuple
 	if wlunit == 'aa': #return in angstroms
 		return spwave, spflux
 	elif wlunit == 'um':
@@ -689,6 +696,29 @@ def get_spec(temp, log_g, reg, metallicity = 0, normalize = True, wlunit = 'aa',
 		spwave = [s * factor for s in spwave]
 
 		return spwave, spflux
+
+a, b = get_spec(2966, 4, [0.51, 0.5350], normalize = False, resolution = 34000, reduce_res = True)
+# print(len(a), len(b))
+# c, d = get_spec(3410, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = False)
+# e,f = get_spec(3410, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = True)
+
+# g, h = get_spec(3510, 4, [0.65, 0.66], normalize = False, resolution = 40000, reduce_res = False)
+# i, j = get_spec(3510, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = False)
+# k,l = get_spec(3510, 4, [0.65, 0.66], normalize = False, resolution = 3000, reduce_res = True)
+
+# plt.figure()
+# plt.plot(a,b, label = '3400, raw data')
+# plt.plot(c,d, label = '3400, broadened')
+# plt.plot(e,f, label = '3400, reduced')
+
+# plt.plot(g,h, label = '3500, raw data')
+# plt.plot(i,j, label = '3500, broadened')
+# plt.plot(k,l, label = '3500, reduced')
+
+
+# plt.legend(loc = 'best')
+# plt.show()
+# plt.savefig('test_spec_retrieval.png')
 
 def add_spec(wl, spec, flux_ratio, normalize = True):#, waverange):
 	"""add spectra together given an array of spectra and flux ratios
@@ -715,7 +745,7 @@ def add_spec(wl, spec, flux_ratio, normalize = True):#, waverange):
 	if normalize == True:
 	#normalize and return
 		spec1 = spec1/max(spec1)
-	return spec1
+	return spec
 
 def make_bb_continuum(wl, spec, dust_arr, wl_unit = 'um'):
 	"""Adds a dust continuum to an input spectrum.
@@ -749,7 +779,7 @@ def make_bb_continuum(wl, spec, dust_arr, wl_unit = 'um'):
 			spec = [spec[n] + pl[n] for n in range(len(pl))]
 	return spec
 
-def fit_spec(n_walkers, wl, flux, reg, fr, guess_init, sig_init = {'t':[200, 200], 'lg':[0.2, 0.2], 'dust': [100]}, wu='um', burn = 100, cs = 10, steps = 200, pysyn=False, conv = True, dust = False):
+def fit_spec(n_walkers, wl, flux, reg, guess_init, sig_init = {'t':[200, 200], 'lg':[0.2, 0.2], 'dust': [100], 'extinct': [0.1], 'fr': [0.4]}, wu='um', burn = 100, cs = 10, steps = 200, pysyn=False, dust = False):
 	"""Does an MCMC to fit a combined model spectrum to an observed single spectrum.
 	guess_init and sig_init should be dictionaries of component names and values for the input guess and the 
 	prior standard deviation, respectively. 
@@ -763,7 +793,7 @@ def fit_spec(n_walkers, wl, flux, reg, fr, guess_init, sig_init = {'t':[200, 200
 		flux (list): spectrum array
 		reg (list): Two value array with start and end points for fitting.
 		fr (list): flux ratio array. Value1 is flux ratio, value2 is location in the spectrum of value1, etc.
-		guess_init (dictionary): dictionary of component names and values for the input guess. The code will expect an dictionary with values for temperature ('t'), log g ('lg'), and dust ('dust').
+		guess_init (dictionary): dictionary of component names and values for the input guess. The code will expect an dictionary with values for temperature ('t'), log g ('lg'), extinction ('extinct'), and dust ('dust').
 		sig_init (dictionary): A dictionary with corresponding standard deviations for each input guess. Default is 200 for temperature, 0.2 for log(g)
 		wu (string): wavelength unit. currently supports 'aa' or 'um'. Default: "um".
 		burn (int): how many initial steps to discard to make sure walkers are spread out. Default: 100.
@@ -784,6 +814,13 @@ def fit_spec(n_walkers, wl, flux, reg, fr, guess_init, sig_init = {'t':[200, 200
 	wave2, spec2 = get_spec(guess_init['t'][1], guess_init['lg'][1], reg, metallicity = metal, wlunit = wu, pys = pysyn)
 
 	init_cspec = add_spec(wave1, wave2, spec1, spec2, fr)
+
+	if 'extinct' in guess_init:
+		extinction = guess_init['extinct']
+	else: 
+		extinction = 0
+
+	init_cspec = extinct(wave1, init_cspec, extinction)
 
 	if dust == True:
 		init_cspec = add_dust(init_cspec, guess_init['dust'][0])
@@ -831,6 +868,10 @@ def fit_spec(n_walkers, wl, flux, reg, fr, guess_init, sig_init = {'t':[200, 200
 			if dust == True:
 				test_cspec = add_dust(test_cspec, var_par[4])
 
+			if 'extinct' in guess_init:
+				test_cspec = extinct(test_wave1, test_cspec, var_par[5])
+
+
 			#calc chi square between data and proposed change
 			test_cs = chisq(test_cspec, flux, 0)
 
@@ -863,7 +904,7 @@ def fit_spec(n_walkers, wl, flux, reg, fr, guess_init, sig_init = {'t':[200, 200
 def run_mcmc(walk, w, flux, regg, fr, temp_vals, lg_vals):
 	#use multiple walkers and parallel processing:
 	pool = mp.Pool()
-	results = [pool.apply_async(fit_spec, args = (walker_num, w, flux,regg, fr, {'t': temp_vals, 'lg':lg_vals} )) for walker_num in range(walk)]
+	results = [pool.apply_async(fit_spec, args = (walker_num, w, flux,regg, {'t': temp_vals, 'lg':lg_vals, 'fr': fr} )) for walker_num in range(walk)]
 	out = [p.get() for p in results]
 
 	#print('Writing file')
@@ -871,7 +912,7 @@ def run_mcmc(walk, w, flux, regg, fr, temp_vals, lg_vals):
 
 	return
 
-def loglikelihood(p0, nspec, ndust, data, flux_ratio, broadening, r, w = 'aa', pysyn = False, dust = False, norm = True):
+def loglikelihood(p0, nspec, ndust, data, broadening, r, w = 'aa', pysyn = False, dust = False, norm = True):
 	"""The natural logarithm of the joint likelihood. 
 	Set to the chisquare value. (we want uniform acceptance weighted by the significance)
 	
@@ -903,10 +944,12 @@ def loglikelihood(p0, nspec, ndust, data, flux_ratio, broadening, r, w = 'aa', p
 
 	wl = np.zeros(le)
 	spec = np.zeros(le)
+	
+	flux_ratio = p0[nspec*2 + 1]
 
 	for n in range(nspec):
 		if len(p0) == nspec:
-			lg = 4.5
+			lg = 4
 		else:
 			lg = p0[nspec + n]
 
@@ -926,11 +969,13 @@ def loglikelihood(p0, nspec, ndust, data, flux_ratio, broadening, r, w = 'aa', p
 
 	test_spec = add_spec(wl, spec, flux_ratio)
 
+	test_spec = extinct(wl[:][1], test_spec, p0[nspec * 2 + 2])
+
 	if dust == True:
 		test_spec = make_bb_continuum([wl[:][1], test_spec], p0[2 * nspec : -1], wl_unit = w)
 
 	test_wl, test_spec = broaden(wl[:][1], test_spec, broadening, 0, 0, plot=False)
-	init_cs = chisq(test_spec, data[:][-1], 0)
+	init_cs = chisq(test_spec, data[:][-1], data[:][-1] * np.std(data[:][-1]))
 
 	if np.isnan(init_cs):
 		init_cs = -np.inf
@@ -941,21 +986,23 @@ def loglikelihood(p0, nspec, ndust, data, flux_ratio, broadening, r, w = 'aa', p
 
 def logprior(p0, nspec, ndust):
 	temps = p0[0:nspec]
-	lgs = [p0[nspec]]
+	lgs = [p0[nspec:2 * nspec]]
+	fr = p0[2*nspec + 1]
+	extinct = p0[2*nspec + 2]
 
 	if ndust > 0:
-		dust = p0[2 * nspec : 2 * nspec + ndust]
+		dust = p0[2 * nspec + 3:]
 	for p in range(nspec):
-		if 400 <= temps[p] <= 6500 and 3.5 <= lgs[p] <= 5:
+		if 2000 <= temps[p] <= 7000 and 3.5 <= lgs[p] <= 5:
 			return 0.0
 		else:
 			return -np.inf
 
-def logposterior(p0, nspec, ndust, data, flux_ratio, broadening, r, wu = 'aa', pysyn = False, dust = False, norm = True):
+def logposterior(p0, nspec, ndust, data, broadening, r, wu = 'aa', pysyn = False, dust = False, norm = True):
 	"""The natural logarithm of the joint posterior.
 
 	Args:
-		p0 (list): a sample containing individual parameter values. Then p0[0: n] = temp, p0[n : 2n] = lg, p0[2n : -1] = dust temps
+		p0 (list): a sample containing individual parameter values. Then p0[0: n] = temp, p0[n : 2n] = lg, p0[2n+1] = flux ratio, p0[2n + 2] = extinction, p0[2n+3:-1] = dust temps
 		nspec (int): number of spectra/stars
 		ndust (int): number of dust continuum components
 		data (list): the set of data/observations
@@ -979,12 +1026,12 @@ def logposterior(p0, nspec, ndust, data, flux_ratio, broadening, r, wu = 'aa', p
 	# if the prior is not finite return a probability of zero (log probability of -inf)
 	if not np.isfinite(lp):
 		return -np.inf
-	lh = loglikelihood(p0, nspec, ndust, data, flux_ratio, broadening, r, w = wu, pysyn = False, dust = False, norm = True)
+	lh = loglikelihood(p0, nspec, ndust, data, broadening, r, w = wu, pysyn = False, dust = False, norm = True)
 	# return the likeihood times the prior (log likelihood plus the log prior)
 	return lp + lh
 
 
-def run_emcee(fname, nwalkers, nsteps, ndim, nburn, pos, nspec, ndust, data, flux_ratio, broadening, r, nthin=10, w = 'aa', pys = False, du = False, no = True, which='em'):
+def run_emcee(fname, nwalkers, nsteps, ndim, nburn, pos, nspec, ndust, data, broadening, r, nthin=10, w = 'aa', pys = False, du = False, no = True, which='em'):
 	"""Run the emcee code to fit a spectrum 
 
 	Args:
@@ -993,7 +1040,7 @@ def run_emcee(fname, nwalkers, nsteps, ndim, nburn, pos, nspec, ndust, data, flu
 		nsteps (int): number of steps for each walker to take
 		ndim (int): number of dimensions to fit to. For a single spectrum to fit temperature and log(g) for, ndim would be 2, for example. 
 		nburn (int): number of steps to discard before starting the sampling. Should be large enough that the walkers are well distributed before sampling starts.
-		pos (list): array containing the initial guesses for temperature and log g.
+		pos (list): array containing the initial guesses for temperature, log g, flux ratio, and extinction
 		nspec (int): number of spectra to fit to. For a single spectrum fit this would be 1, for a two component fit this should be 2.
 		ndust (int): number of dust continuum components to fit to. (untested)
 		data (list): the spectrum to fit to
@@ -1012,38 +1059,38 @@ def run_emcee(fname, nwalkers, nsteps, ndim, nburn, pos, nspec, ndust, data, flu
 
 	"""
 	if which == 'em':
-		sampler = emcee.EnsembleSampler(nwalkers, ndim, logposterior, threads=nwalkers, args=[nspec, ndust, data, flux_ratio, broadening, r], \
+		sampler = emcee.EnsembleSampler(nwalkers, ndim, logposterior, threads=nwalkers, args=[nspec, ndust, data, broadening, r], \
 		kwargs={'pysyn': pys, 'dust': du, 'norm':no})
 
 		for p, lnprob, lnlike in sampler.sample(pos, iterations=nburn):
 			pass
 		sampler.reset()
 
-	if which == 'pt':
-		ntemps = int(input('How many temperatures would you like to try? '))
-		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, loglikelihood, logprior, threads=nwalkers, loglargs=[\
-		nspec, ndust, data, flux_ratio, broadening, r], logpargs=[nspec, ndust], loglkwargs={'w':w, 'pysyn': pys, 'dust': du, 'norm':no})
+	# if which == 'pt':
+	# 	ntemps = int(input('How many temperatures would you like to try? '))
+	# 	sampler = emcee.PTSampler(ntemps, nwalkers, ndim, loglikelihood, logprior, threads=nwalkers, loglargs=[\
+	# 	nspec, ndust, data, flux_ratio, broadening, r], logpargs=[nspec, ndust], loglkwargs={'w':w, 'pysyn': pys, 'dust': du, 'norm':no})
 
-		for p, lnprob, lnlike in sampler.sample(pos, iterations=nburn):
-			pass
-		sampler.reset()
+	# 	for p, lnprob, lnlike in sampler.sample(pos, iterations=nburn):
+	# 		pass
+	# 	sampler.reset()
 
-		#for p, lnprob, lnlike in sampler.sample(p, lnprob0=lnprob,lnlike0=lnlike, iterations=nsteps, thin=nthin):
-		#	pass
+	# 	#for p, lnprob, lnlike in sampler.sample(p, lnprob0=lnprob,lnlike0=lnlike, iterations=nsteps, thin=nthin):
+	# 	#	pass
 
-		assert sampler.chain.shape == (ntemps, nwalkers, nsteps/nthin, ndim)
+	# 	assert sampler.chain.shape == (ntemps, nwalkers, nsteps/nthin, ndim)
 
-		# Chain has shape (ntemps, nwalkers, nsteps, ndim)
-		# Zero temperature mean:
-		mu0 = np.mean(np.mean(sampler.chain[0,...], axis=0), axis=0)
+	# 	# Chain has shape (ntemps, nwalkers, nsteps, ndim)
+	# 	# Zero temperature mean:
+	# 	mu0 = np.mean(np.mean(sampler.chain[0,...], axis=0), axis=0)
 
-		try:
-			# Longest autocorrelation length (over any temperature)
-			max_acl = np.max(sampler.acor)
-			print('max acl: ', max_acl)
-			np.savetxt('results/acor.txt', sampler.acor)
-		except:
-			pass
+	# 	try:
+	# 		# Longest autocorrelation length (over any temperature)
+	# 		max_acl = np.max(sampler.acor)
+	# 		print('max acl: ', max_acl)
+	# 		np.savetxt('results/acor.txt', sampler.acor)
+	# 	except:
+	# 		pass
 
 	f = open("results/{}_chain.txt".format(fname), "w")
 	f.close()
