@@ -1,6 +1,6 @@
 """
 .. module:: IMF
-   :platform: Unix, Mac
+   :platform: Unix, Windows
    :synopsis: Synthetic population production
 
 .. moduleauthor:: Kendall Sullivan <kendallsullivan@utexas.edu>
@@ -27,7 +27,7 @@ import matplotlib.cm as cm
 import extinction
 from mpi4py import MPI
 import time 
-from labellines import labelLine, labelLines
+# from labellines import labelLine, labelLines
 
 def redres(wl, spec, factor):
 	"""Reduces spectral resolution to mimic pixellation at the surface of a CCD
@@ -408,7 +408,7 @@ def match_pars(temp1, temp2, lf, lg = 4):
 	#return the wavelength and composite spectrum arrays
 	return wl1, spec
 
-def get_secondary_mass(pri_mass, power_law = False):
+def get_secondary_mass(pri_mass, power_law = True):
 	'''Given a primary mass, randomly assigns it a secondary star mass using the values in the histogram from Raghavan et al. (2010) Fig. 16.
 	Could probably stand to be updated to better statistics for Taurus at some point - these values are for field FGK stars.
 
@@ -433,18 +433,18 @@ def get_secondary_mass(pri_mass, power_law = False):
 		#make the full possible range of mass ratio distributions
 		q_range = np.linspace(1e-3, 1, 1000)
 		#then make the probability distribution
-		q_dist = [q ** 0.4 for q in q_range]
+		q_dist = [q ** (0.4 * pri_mass) for q in q_range] #alter based on primary mass - A stars have a steeper distribution than M stars
 		#from the PDF, make the CDF by summing
-		q_cdf = [np.sum(q_dist[0:n]) for n in range(len(q))]
+		q_cdf = [np.sum(q_dist[0:n]) for n in range(len(q_dist))]
 		#then normalize the CDF
 		q_cdf_norm = [q/np.sum(q_cdf) for q in q_cdf]
-		#while we're not in the stellar regime 
+		#while we're not in the stellar regime - this is ok because we don't care about BD or planetary companions
 		while sm < 0.09:
 			#draw a random number and find which box of the CDF it falls into
 			#then find the corresponding q
 			rn = np.random.rand()
 			mr = 0
-			for n in range(1, len(cdf_norm)):
+			for n in range(1, len(q_cdf_norm)):
 				if rn > q_cdf_norm[n-1] and rn < q_cdf_norm[n]:
 					mr = q_range[n]
 			sm = pri_mass * mr
@@ -507,7 +507,7 @@ def make_mass(n_sys, reduce_m = False, m_reduce = 0.8):
 	#this could be done more nicely but for now it's where I functionally set the temperature limits for systems 
 	#which is why the upper limit is 2.5 solar masses - corresponds to ~ 7000 K, or an early G - way more massive SpT
 	# than what's found in Taurus at this age, even if stars that massive are forming there
-	masses = np.linspace(0.17, 1.5, 5000)
+	masses = np.linspace(0.09, 2, 5000)
 	#make the probability distribution associated with a Chabrier IMF
 	prob_dist = make_chabrier_imf(masses)
 
@@ -516,7 +516,7 @@ def make_mass(n_sys, reduce_m = False, m_reduce = 0.8):
 		#find the region of the PDF that is below some maximum reduction mass
 		p = prob_dist[np.where(masses <= m_reduce)]
 		#then just cut the pdf into a quarter there - the normalization will ensure that this doesn't wreck anything else
-		pp = [r/4 for r in p]
+		pp = [r/24 for r in p]
 		#then just plug back in
 		prob_dist[np.where(masses <= m_reduce)] = pp
 
@@ -557,8 +557,8 @@ def make_mass(n_sys, reduce_m = False, m_reduce = 0.8):
 # plt.legend(loc='best')
 # plt.savefig('correction_validation.png')
 
-def unres_bin(sep, mass):
-	if mass < 1:
+def unres_bin(sep, dist):
+	if sep/dist <= 2:
 		return True
 	else:
 		return False
@@ -601,7 +601,7 @@ def make_binary_sys(n, n_sys, multiplicity, mass_bins, age, av, run, sfr = 'usco
 
 	#get an age from the given range
 	#this is uniform right now but if a population is more clustered you'd want to change that
-	age = r.uniform(low = age[0], high = age[-1])
+	age = r.normal(np.mean(age), (max(age) - min(age))/2)
 
 	#define the different columns for the output files
 	#I don't actually write these to any files, but I keep them here to retain a note of what I'm writing to and where
@@ -620,7 +620,7 @@ def make_binary_sys(n, n_sys, multiplicity, mass_bins, age, av, run, sfr = 'usco
 	sec_pars = np.empty(len(kw))
 
 	#now make the primary star(s) by drawing from the IMF
-	mass = make_mass(n_sys, reduce_m = reduce_ms, m_reduce = 0.8)
+	mass = make_mass(n_sys, reduce_m = reduce_ms, m_reduce = m_reduce)
 	
 	#now open a file to write the spectrum to in a few steps
 	#name it spec_n.txt where n is the "system number" input above. This is useful because I typically use this to create 1 system at a time,
@@ -630,7 +630,6 @@ def make_binary_sys(n, n_sys, multiplicity, mass_bins, age, av, run, sfr = 'usco
 	#now get the observables using the age and mass.
 	#depending on which model was requested
 	ptemp, plogg, plum, mags = get_params(mass, age, which = model)
-	plogg = 4
 
 	#then get the system distance 
 	dist = get_distance(sfr)
@@ -674,9 +673,9 @@ def make_binary_sys(n, n_sys, multiplicity, mass_bins, age, av, run, sfr = 'usco
 
 		#get a random number
 		num_rand = r.random_sample()
-		sep = r.uniform(10, 1e3)
+		sep = 10 ** (r.normal(3 * mass[n_sys - 1] - 0.79, 1)) #from fitting a line to the results from De Rosa+ 2014, Raghavan+ 2010, and Winters+ 2019
 		#and if the random number is smaller than the multiplicity fraction, we assign it as a binary and now have to assign the secondary some properties
-		if mf >= num_rand and unres_bin(sep, mass[n_sys - 1]) == True:
+		if mf >= num_rand and unres_bin(sep, dist) == True:
 			pri_pars[n_sys][2]= 1
 
 			sec_par = np.empty(len(kw))
@@ -696,7 +695,6 @@ def make_binary_sys(n, n_sys, multiplicity, mass_bins, age, av, run, sfr = 'usco
 
 			#then, like above, use the mass and age to infer observables
 			stemp, slogg, slum, smags = get_params(sec_par[1], age, which = model)
-			slogg = 4
 			#write everything to the array 
 			sec_par[6:9] = stemp, slogg, slum
 			sec_par[9:] = smags
@@ -1314,7 +1312,7 @@ def fit_test(teff, logg, norm, extinct, filename, res = [3000], nsteps = 50, reg
 		cs_try = 0
 
 		#as long as we're inside a valid temperature range (so things can't go completely off the rails)
-		if teff_try < 7000 and teff_try > 2000:
+		if teff_try < 10000 and teff_try > 2300:
 
 			#make a new test spectrum with the new temperature
 			ww_i, ss_i = mft.get_spec(teff_try, logg, [(min(wl) - 5)/1e4, (max(wl) + 5)/1e4], normalize = False, resolution = max(res))
@@ -1616,12 +1614,12 @@ def analyze_sys(runfolder, model = 'parsec'):
 		tt2 = teff[np.where(aage == a1[n])]
 		tt2 = [10 ** t for t in tt2]
 
-		ax.plot(tt2, lll[np.where(aage == a1[n])], label = '{}'.format(int(np.around(a1[n]))), color = cm.plasma(a1[n]/6), zorder = 0)
+		ax.plot(tt2, lll[np.where(aage == a1[n])], label = '{}'.format(int(np.around(a1[n]))), color = cm.plasma(a1[n]/10), zorder = 0)
 
 	#make the isochrone labels show up between the 6000 and 7000 K temperatures, except for the zero age one which shows at 3500 K
 	#labelLines does exactly that 
 	#the zorder of 2.5 here makes the labels plot above the lines - fontsize and alpha can be tuned as desired
-	xvals = list(np.linspace(6000,7000, 9))
+	xvals = list(np.linspace(7000,8500, len(a1[1:])))
 	xvals.insert(0, 3500)
 	labelLines(plt.gca().get_lines(), align = False, xvals = xvals, fontsize = 9, alpha = 0.8, zorder = 2.5)
 
@@ -1734,7 +1732,7 @@ def analyze_sys(runfolder, model = 'parsec'):
 		cbar.set_label(r'T$_{eff}$ difference (K)')
 
 	#set the fitting parameters, labels, and limits
-	ax.set_xlim(7200, 2500)
+	ax.set_xlim(8500, 2500)
 	ax.set_ylim(-2, 2)
 	ax.set_xlabel(r'T$_{eff}$', fontsize = 13)
 	ax.set_ylabel(r'log(L)', fontsize = 13)
@@ -1784,7 +1782,7 @@ def analyze_sys(runfolder, model = 'parsec'):
 		#.format(np.mean(it1 -ot1), np.std(it1 - ot1), np.mean(it2 -ot2), np.std(it2- ot2)))
 	#format and label everything
 	plt.minorticks_on()
-	# ax.set_ylim(-350, 200)
+	ax.set_xlim(2200, max(max(ot_), max(it_)) + 50)
 	ax.tick_params(which='minor', bottom=True, top =True, left=True, right=True)
 	ax.tick_params(bottom=True, top =True, left=True, right=True)
 	ax.tick_params(which='both', labelsize = "large", direction='in')
@@ -1923,15 +1921,22 @@ def analyze_sys(runfolder, model = 'parsec'):
 	#sort out any nans 
 	agesn = ages[~np.isnan(ages)]
 
-	mage = agesn[np.where(out_t < 3900)]
-	fgage = agesn[np.where(out_t > 5100)]
+	#cutoffs decided from Pecaut and Mamajek 2013
+	fage = agesn[np.where((out_t > 6000) & (out_t < 7000))]
+	gage = agesn[np.where((out_t > 5300) & (out_t < 6000))]
+	kage = agesn[np.where((out_t < 5300) & (out_t > 3900))]
+	ma = agesn[np.where(out_t < 3900)]
+	mage = ma #np.tile(ma, 24)
+	# agesn = np.concatenate((agesn, np.tile(ma, 23)), axis = None)
 
 	fig, ax = plt.subplots()
 	#then make histograms of the input and fitted temperatures using 0.25 myr bins
 	try:
 		ax.hist(inp_age, color = 'navy', label = 'Input ages', bins = np.arange(min(min(inp_age), min(agesn)), max(max(agesn), max(inp_age)), 0.25))
-		ax.hist(agesn, color = 'xkcd:sky blue', alpha = 0.6, label = r'Output ages\\Avg. M age: {:.1f} $\pm$ {:.1f}\\Avg. FG age: {:.1f} $\pm$ {:.1f}'\
-			.format(np.mean(mage), np.std(mage), np.mean(fgage), np.std(fgage)), bins = np.arange(min(min(inp_age), min(agesn)), max(max(agesn), max(inp_age)), 0.25))
+		ax.hist(agesn, color = 'xkcd:sky blue', alpha = 0.6, label = \
+			r'Output ages\\Avg. M age: {:.1f} $\pm$ {:.1f} (N = {})\\Avg. F age: {:.1f} $\pm$ {:.1f} (N = {})\\Avg. age: {:.1f} $\pm$ {:.1f} (N = {})'\
+			.format(np.mean(mage), np.std(mage), len(mage), np.mean(fage), np.std(fage), len(fage), np.mean(agesn), np.std(agesn), len(agesn)),\
+			 bins = np.arange(min(min(inp_age), min(agesn)), max(max(agesn), max(inp_age)), 0.25))
 	except:
 		ax.hist(inp_age, color = 'navy', label = 'Input ages', bins = np.arange(inp_age, max(agesn), 0.25))
 		ax.hist(agesn, color = 'xkcd:sky blue', alpha = 0.6, label = 'Output ages', bins = np.arange(inp_age, max(agesn), 0.25))
@@ -1948,6 +1953,20 @@ def analyze_sys(runfolder, model = 'parsec'):
 	plt.tight_layout()
 	plt.savefig(os.getcwd() + '/' + runfolder + '/age_hist.pdf')
 	plt.close()
+
+	fig, ax = plt.subplots()
+	ax.errorbar(['F', 'G', 'K', 'M'], [np.mean(fage), np.mean(gage), np.mean(kage), np.mean(mage)], yerr = [np.std(fage), np.std(gage), np.std(kage), np.std(mage)])
+	ax.set_xlabel('Spectral type', fontsize = 13)
+	ax.set_ylabel('Measured age (Myr)', fontsize = 13)
+	plt.minorticks_on()
+	ax.tick_params(bottom=True, top =True, left=True, right=True)
+	ax.tick_params(which='both', labelsize = "large", direction='in')
+	ax.tick_params('both', length=8, width=1.5, which='major')
+	ax.tick_params('both', length=4, width=1, which='minor')
+	plt.tight_layout()
+	plt.savefig(os.getcwd() + '/' + runfolder + '/age_SpT.pdf')
+	plt.close()
+
 
 	#save the results of the interpolations: age, masses, luminosities, fitted temp and Av
 	np.savetxt(runfolder + '/results/mass_fit_results.txt', np.column_stack((num, ages, masses, lums, out_t, av)),\
@@ -2731,9 +2750,9 @@ def compare_two_runs(run1, run2):
 
 # bf = [0.6, 0.8, 1]
 
-# run_pop(144, 'run24', new_pop = True, region1 = [0.56, 0.69], region2 = [0.385, 0.54], bf = [0.6, 0.8, 1], md = [0.8, 1], \
-# 	age_range = [9, 11], extinction = 2, res1 = 2100, res2 = 1650, nsteps = 50, reduce_ms = True, m_reduce = 0.7)
-# final_analysis(96, 'run24', res = 2100, plots = False, reg = [5600, 6900])
+run_pop(480, 'run27', new_pop = True, region1 = [0.56, 0.69], region2 = [0.385, 0.54], bf = [0.6, 0.6, 0.8], md = [0.8, 1.2], \
+	age_range = [9, 11], extinction = 2, res1 = 2100, res2 = 1650, nsteps = 50, reduce_ms = True, m_reduce = 0.85)
+# final_analysis(144, 'run26', res = 2100, plots = False, reg = [5600, 6900])
 # final_analysis(96, 'run20', res = 2100, plots = False, reg = [5600, 6900])
 # final_analysis(480, 'run21', res = 2100, plots = False, reg = [5600, 6900])
 # final_analysis(240, 'run17', res = 34000, plots = False, reg = [5100, 5350])
